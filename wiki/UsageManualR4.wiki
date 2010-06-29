@@ -2,7 +2,7 @@
 
 = Introduction =
 
-How to use the OAuthAdapter release 4.
+How to use the [http://oauth-adapter.googlecode.com/svn/trunk/oauth_adapter.js OAuthAdapter release 4].
 
 = Details =
 
