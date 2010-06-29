@@ -9,6 +9,8 @@
  *            To donate, copy and paste this link in your browser:
  * https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=T5HUU4J5EQTJU&lc=IT&item_name=OAuth%20Adapter&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_LG%2egif%3aNonHosted
  *
+ * last update 29.06.2010 16.00
+ * 
  * Copyright 2010 David Riccitelli, Interact SpA
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -101,6 +103,9 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     // holds actions to perform
     var actionsQueue = [];
 
+	// pin finder
+	var pinFinder = null;
+
     // will hold UI components
     var window = null;
     var view = null;
@@ -151,17 +156,26 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     };
 
     // creates a message to send to the service
-    var createMessage = function(pUrl)
+    var createMessage = function(pUrl, pMethod, pParameters)
     {
+		Ti.API.debug('Creating a message [url:'+pUrl+'][method:'+pMethod+'][parameters:'+JSON.stringify(pParameters)+'].');
+		
         var message = {
             action: pUrl
             ,
-            method: 'POST'
+            method: pMethod
             ,
             parameters: []
         };
         message.parameters.push(['oauth_consumer_key', consumerKey]);
         message.parameters.push(['oauth_signature_method', signatureMethod]);
+
+		if (pParameters && pParameters instanceof Array)
+			for (p in pParameters)
+				if (pParameters[p]) message.parameters.push(pParameters[p]);
+
+		Ti.API.debug('Creating a message ['+JSON.stringify(message)+']: done.');
+
         return message;
     };
 
@@ -171,11 +185,18 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     };
 
     // requests a requet token with the given Url
-    this.getRequestToken = function(pUrl)
+    this.getRequestToken = function(pUrl, pParameters)
     {
+		Ti.API.debug('Requesting a token [url:'+pUrl+'][parameters:'+JSON.stringify(pParameters)+'].');
+	
         accessor.tokenSecret = '';
 
-        var message = createMessage(pUrl);
+        var message = createMessage(pUrl,'POST',pParameters);
+
+		// if (pParameters)
+		// 	for (p in pParameters)
+		// 		message.push(pParameters[p]);
+
         OAuth.setTimestampAndNonce(message);
         OAuth.SignatureMethod.sign(message, accessor);
 
@@ -189,7 +210,7 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
         Ti.API.debug('request token got the following response: ' + client.responseText);
 
-        return client.responseText;
+        return requestToken;
     }
 
     // unloads the UI used to have the user authorize the application
@@ -219,38 +240,29 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     // currently works with TWITTER
     var authorizeUICallback = function(e)
     {
-        Ti.API.debug('authorizeUILoaded');
+        Ti.API.debug('authorizeUICallback.');
 
-        var xmlDocument = Ti.XML.parseString(e.source.html);
-        var nodeList = xmlDocument.getElementsByTagName('div');
+		// Ti.API.debug('*****************************');
+		// Ti.API.debug(e.source.html);
+		// Ti.API.debug('*****************************');
 
-        for (var i = 0; i < nodeList.length; i++)
-        {
-            var node = nodeList.item(i);
-            var id = node.attributes.getNamedItem('id');
-            if (id && id.nodeValue == 'oauth_pin')
-            {
-                pin = node.text;
-
-                if (receivePinCallback) setTimeout(receivePinCallback, 100);
-
-                var id = null;
-                var node = null;
-                var nodeList = null;
-                var xmlDocument = null;
-
-                destroyAuthorizeUI();
-
-                return;
-            }
-        }
-
+		pin = pinFinder.find(e.source.html);
+		
+		if (pin)
+		{
+	        if (receivePinCallback) setTimeout(receivePinCallback, 100);
+	        destroyAuthorizeUI();
+		}
     };
 
     // shows the authorization UI
-    this.showAuthorizeUI = function(pUrl, pReceivePinCallback)
+    this.showAuthorizeUI = function(pUrl, pReceivePinCallback, pPinFinder)
     {
+	
+		Ti.API.debug('Showing authorization UI ['+pUrl+'].');
+	
         receivePinCallback = pReceivePinCallback;
+		pinFinder = pPinFinder;
 
         window = Ti.UI.createWindow({
             modal: true,
@@ -301,9 +313,15 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
     this.getAccessToken = function(pUrl)
     {
+		Ti.API.debug('Getting access token [url:'+pUrl+'][tokenSecret:'+requestTokenSecret+'][oauth_token:'+requestToken+'][oauth_verifier:'+pin+']');
+	
+		if (accessToken) return accessToken;
+	
+		if (!pUrl) return null;
+	
         accessor.tokenSecret = requestTokenSecret;
 
-        var message = createMessage(pUrl);
+        var message = createMessage(pUrl,'POST');
         message.parameters.push(['oauth_token', requestToken]);
         message.parameters.push(['oauth_verifier', pin]);
 
@@ -326,7 +344,7 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
         processQueue();
 
-        return client.responseText;
+        return accessToken;
 
     };
 
@@ -339,8 +357,12 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
         Ti.API.debug('Processing queue: done.');
     };
 
-    // TODO: remove this on a separate Twitter library
     var send = function(pUrl, pParameters, pTitle, pSuccessMessage, pErrorMessage)
+	{
+    	return send2(pUrl, 'POST', pParameters, pTitle, pSuccessMessage, pErrorMessage)
+	};
+    // var send2 = function(pUrl, pMethod, pParameters, pContentType, pBody, pTitle, pSuccessMessage, pErrorMessage)
+    var send2 = function(pUrl, pMethod, pParameters, pTitle, pSuccessMessage, pErrorMessage)
     {
         Ti.API.debug('Sending a message to the service at [' + pUrl + '] with the following params: ' + JSON.stringify(pParameters));
 
@@ -361,9 +383,9 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
         accessor.tokenSecret = accessTokenSecret;
 
-        var message = createMessage(pUrl);
+        var message = createMessage(pUrl,pMethod,pParameters);
         message.parameters.push(['oauth_token', accessToken]);
-        for (p in pParameters) message.parameters.push(pParameters[p]);
+        // for (p in pParameters) message.parameters.push(pParameters[p]);
         OAuth.setTimestampAndNonce(message);
         OAuth.SignatureMethod.sign(message, accessor);
 
@@ -372,8 +394,12 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
         Ti.API.debug(p + ': ' + parameterMap[p]);
 
         var client = Ti.Network.createHTTPClient();
-        client.open('POST', pUrl, false);
-        client.send(parameterMap);
+        client.open(pMethod, pUrl, false);
+		client.send(parameterMap);
+		// Ti.API.debug(OAuth.formEncode(parameterMap));
+		// client.setRequestHeader('Authentication',OAuth.formEncode(parameterMap));
+		// client.setRequestHeader('Content-Type',pContentType);
+		//         client.send(pBody);
 
         if (client.status == 200) {
             Ti.UI.createAlertDialog({
@@ -393,5 +419,33 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
     };
     this.send = send;
+    this.send2 = send2;
 
 };
+
+function PinFinder(pRegExp)
+{
+	
+	var regExp = pRegExp;
+
+	this.find = function(html)
+	{
+		Ti.API.debug('Looking for a PIN [regExp:'+regExp+'].');
+		
+		// Ti.API.debug('******************************************************************');
+		// Ti.API.debug(html);
+		// Ti.API.debug('******************************************************************');
+		
+		var result = RegExp(regExp).exec(html);
+		if (result == null || result.length < 2) return null;
+		
+		Ti.API.debug('Looking for a PIN [pin:'+result[1]+']: done.');
+				
+		return result[1];
+	};
+
+};
+
+PinFinder.digg=new PinFinder('<p id="pin">(.*?)</p>');
+PinFinder.twitter=new PinFinder('<div id="oauth_pin">(.*?)</p>');
+PinFinder.buzz=new PinFinder('verification code: <b>(.*?)</b>');
