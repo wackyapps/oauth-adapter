@@ -432,9 +432,9 @@ function PinFinder(pRegExp)
 	{
 		Ti.API.debug('Looking for a PIN [regExp:'+regExp+'].');
 		
-		// Ti.API.debug('******************************************************************');
-		// Ti.API.debug(html);
-		// Ti.API.debug('******************************************************************');
+		Ti.API.debug('******************************************************************');
+		Ti.API.debug(html);
+		Ti.API.debug('******************************************************************');
 		
 		var result = RegExp(regExp).exec(html);
 		if (result == null || result.length < 2) return null;
@@ -447,5 +447,6 @@ function PinFinder(pRegExp)
 };
 
 PinFinder.digg=new PinFinder('<p id="pin">(.*?)</p>');
-PinFinder.twitter=new PinFinder('<div id="oauth_pin">(.*?)</p>');
+PinFinder.twitter=new PinFinder('<div id="oauth_pin">(.*?)</div>');
 PinFinder.buzz=new PinFinder('verification code: <b>(.*?)</b>');
+PinFinder.yahoo=new PinFinder('<span id="shortCode">(.*?)</span>');
