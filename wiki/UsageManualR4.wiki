@@ -33,7 +33,7 @@ if (oAuthAdapter.isAuthorized() == false)
     // show the authorization UI and call back the receive PIN function
     oAuthAdapter.showAuthorizeUI('http://twitter.com/oauth/authorize?oauth_token=' +
         oAuthAdapter.getRequestToken('http://twitter.com/oauth/request_token', [['oauth_callback', 'oob']]),
-    receivePin, PinFinder.twitter);
+        receivePin, PinFinder.twitter);
 }
 
 }}}
