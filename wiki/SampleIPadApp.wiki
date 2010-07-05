@@ -79,8 +79,8 @@ tabGroup.open();
 
 Ti.include('lib/oauth_adapter.js');
 var oAuthAdapter = new OAuthAdapter(
-        'JZOxTuNefmhTyhzeYudi4q2XqWBPIOJkFvO5Yx2mE',
-        '8Vw5uQCjwmeov5B6C6WYQ',
+        '<your-secret>',
+        '<your-key>',
         'HMAC-SHA1');
 
 
