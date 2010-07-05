@@ -5,6 +5,12 @@
 
 How to use the [http://oauth-adapter.googlecode.com/svn/trunk/oauth_adapter.js OAuthAdapter release 4].
 
+You need to download the following two libraries to a lib subfolder (below the Resource folder) in your project:
+ - [http://oauth.googlecode.com/svn/code/javascript/oauth.js oauth.js]
+ - [http://oauth.googlecode.com/svn/code/javascript/sha1.js sha1.js]
+
+Then download the [http://oauth-adapter.googlecode.com/svn/trunk/oauth_adapter.js oauth_adapter.js] in any folder you like and include it via Ti.include('oauth_adapter.js').
+
 = Details =
 
 {{{
