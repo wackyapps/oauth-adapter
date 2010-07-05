@@ -8,6 +8,8 @@ This is a sample based on a clean iPad project with Titanium 1.3.0 and iPhone SD
 
 = Details =
 
+Support files (oauth.js, sha1.js and oauth_adapter.js) are located in the lib subfolder. This is the app.js file:
+
 {{{
 
 // this sets the background color of the master UIView (when there are no windows/tab groups on it)
