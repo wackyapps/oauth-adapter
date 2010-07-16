@@ -9,8 +9,6 @@
  *            To donate, copy and paste this link in your browser:
  * https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=T5HUU4J5EQTJU&lc=IT&item_name=OAuth%20Adapter&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_LG%2egif%3aNonHosted
  *
- * last update 29.06.2010 16.00
- * 
  * Copyright 2010 David Riccitelli, Interact SpA
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -103,9 +101,6 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     // holds actions to perform
     var actionsQueue = [];
 
-	// pin finder
-	var pinFinder = null;
-
     // will hold UI components
     var window = null;
     var view = null;
@@ -156,26 +151,17 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     };
 
     // creates a message to send to the service
-    var createMessage = function(pUrl, pMethod, pParameters)
+    var createMessage = function(pUrl)
     {
-		Ti.API.debug('Creating a message [url:'+pUrl+'][method:'+pMethod+'][parameters:'+JSON.stringify(pParameters)+'].');
-		
         var message = {
             action: pUrl
             ,
-            method: pMethod
+            method: 'POST'
             ,
             parameters: []
         };
         message.parameters.push(['oauth_consumer_key', consumerKey]);
         message.parameters.push(['oauth_signature_method', signatureMethod]);
-
-		if (pParameters && pParameters instanceof Array)
-			for (p in pParameters)
-				if (pParameters[p]) message.parameters.push(pParameters[p]);
-
-		Ti.API.debug('Creating a message ['+JSON.stringify(message)+']: done.');
-
         return message;
     };
 
@@ -185,18 +171,11 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     };
 
     // requests a requet token with the given Url
-    this.getRequestToken = function(pUrl, pParameters)
+    this.getRequestToken = function(pUrl)
     {
-		Ti.API.debug('Requesting a token [url:'+pUrl+'][parameters:'+JSON.stringify(pParameters)+'].');
-	
         accessor.tokenSecret = '';
 
-        var message = createMessage(pUrl,'POST',pParameters);
-
-		// if (pParameters)
-		// 	for (p in pParameters)
-		// 		message.push(pParameters[p]);
-
+        var message = createMessage(pUrl);
         OAuth.setTimestampAndNonce(message);
         OAuth.SignatureMethod.sign(message, accessor);
 
@@ -210,25 +189,31 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
         Ti.API.debug('request token got the following response: ' + client.responseText);
 
-        return requestToken;
+        return client.responseText;
     }
 
     // unloads the UI used to have the user authorize the application
     var destroyAuthorizeUI = function()
     {
+        Ti.API.debug('destroyAuthorizeUI');
         // if the window doesn't exist, exit
         if (window == null) return;
 
         // remove the UI
         try
         {
-            window.close();
-            window.remove(view);
-            view.remove(webView);
+	        Ti.API.debug('destroyAuthorizeUI:webView.removeEventListener');
             webView.removeEventListener('load', authorizeUICallback);
-            webView = null;
-            view = null;
-            window = null;
+	        Ti.API.debug('destroyAuthorizeUI:window.close()');
+            window.hide();
+			// 	        Ti.API.debug('destroyAuthorizeUI:window.remove(view)');
+			// window.remove(view);
+			// 	        Ti.API.debug('destroyAuthorizeUI:view.remove(webView)');
+			// 	        view.remove(webView);
+			// 	        Ti.API.debug('destroyAuthorizeUI:nullifying');
+			// 	        webView = null;
+			//             view = null;
+			//             window = null;
         }
         catch(ex)
         {
@@ -240,29 +225,39 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
     // currently works with TWITTER
     var authorizeUICallback = function(e)
     {
-        Ti.API.debug('authorizeUICallback.');
+        Ti.API.debug('authorizeUILoaded');
 
-		// Ti.API.debug('*****************************');
-		// Ti.API.debug(e.source.html);
-		// Ti.API.debug('*****************************');
+        var xmlDocument = Ti.XML.parseString(e.source.html);
+        var nodeList = xmlDocument.getElementsByTagName('div');
 
-		pin = pinFinder.find(e.source.html);
-		
-		if (pin)
-		{
-	        if (receivePinCallback) setTimeout(receivePinCallback, 100);
-	        destroyAuthorizeUI();
-		}
+        for (var i = 0; i < nodeList.length; i++)
+        {
+            var node = nodeList.item(i);
+            var id = node.attributes.getNamedItem('id');
+            if (id && id.nodeValue == 'oauth_pin')
+            {
+                pin = node.text;
+
+                if (receivePinCallback) setTimeout(receivePinCallback, 100);
+
+                id = null;
+                node = null;
+
+                destroyAuthorizeUI();
+
+                break;
+            }
+        }
+
+        nodeList = null;
+        xmlDocument = null;
+
     };
 
     // shows the authorization UI
-    this.showAuthorizeUI = function(pUrl, pReceivePinCallback, pPinFinder)
+    this.showAuthorizeUI = function(pUrl, pReceivePinCallback)
     {
-	
-		Ti.API.debug('Showing authorization UI ['+pUrl+'].');
-	
         receivePinCallback = pReceivePinCallback;
-		pinFinder = pPinFinder;
 
         window = Ti.UI.createWindow({
             modal: true,
@@ -295,8 +290,10 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
         window.open();
 
         webView = Ti.UI.createWebView({
-            url: pUrl
+            url: pUrl,
+			autoDetect:[Ti.UI.AUTODETECT_NONE]
         });
+		Ti.API.debug('Setting:['+Ti.UI.AUTODETECT_NONE+']');
         webView.addEventListener('load', authorizeUICallback);
         view.add(webView);
 
@@ -313,15 +310,9 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
     this.getAccessToken = function(pUrl)
     {
-		Ti.API.debug('Getting access token [url:'+pUrl+'][tokenSecret:'+requestTokenSecret+'][oauth_token:'+requestToken+'][oauth_verifier:'+pin+']');
-	
-		if (accessToken) return accessToken;
-	
-		if (!pUrl) return null;
-	
         accessor.tokenSecret = requestTokenSecret;
 
-        var message = createMessage(pUrl,'POST');
+        var message = createMessage(pUrl);
         message.parameters.push(['oauth_token', requestToken]);
         message.parameters.push(['oauth_verifier', pin]);
 
@@ -344,7 +335,7 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
         processQueue();
 
-        return accessToken;
+        return client.responseText;
 
     };
 
@@ -357,12 +348,8 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
         Ti.API.debug('Processing queue: done.');
     };
 
+    // TODO: remove this on a separate Twitter library
     var send = function(pUrl, pParameters, pTitle, pSuccessMessage, pErrorMessage)
-	{
-    	return send2(pUrl, 'POST', pParameters, pTitle, pSuccessMessage, pErrorMessage)
-	};
-    // var send2 = function(pUrl, pMethod, pParameters, pContentType, pBody, pTitle, pSuccessMessage, pErrorMessage)
-    var send2 = function(pUrl, pMethod, pParameters, pTitle, pSuccessMessage, pErrorMessage)
     {
         Ti.API.debug('Sending a message to the service at [' + pUrl + '] with the following params: ' + JSON.stringify(pParameters));
 
@@ -383,9 +370,9 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
         accessor.tokenSecret = accessTokenSecret;
 
-        var message = createMessage(pUrl,pMethod,pParameters);
+        var message = createMessage(pUrl);
         message.parameters.push(['oauth_token', accessToken]);
-        // for (p in pParameters) message.parameters.push(pParameters[p]);
+        for (p in pParameters) message.parameters.push(pParameters[p]);
         OAuth.setTimestampAndNonce(message);
         OAuth.SignatureMethod.sign(message, accessor);
 
@@ -394,12 +381,8 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
         Ti.API.debug(p + ': ' + parameterMap[p]);
 
         var client = Ti.Network.createHTTPClient();
-        client.open(pMethod, pUrl, false);
-		client.send(parameterMap);
-		// Ti.API.debug(OAuth.formEncode(parameterMap));
-		// client.setRequestHeader('Authentication',OAuth.formEncode(parameterMap));
-		// client.setRequestHeader('Content-Type',pContentType);
-		//         client.send(pBody);
+        client.open('POST', pUrl, false);
+        client.send(parameterMap);
 
         if (client.status == 200) {
             Ti.UI.createAlertDialog({
@@ -419,34 +402,5 @@ var OAuthAdapter = function(pConsumerSecret, pConsumerKey, pSignatureMethod)
 
     };
     this.send = send;
-    this.send2 = send2;
 
 };
-
-function PinFinder(pRegExp)
-{
-	
-	var regExp = pRegExp;
-
-	this.find = function(html)
-	{
-		Ti.API.debug('Looking for a PIN [regExp:'+regExp+'].');
-		
-		Ti.API.debug('******************************************************************');
-		Ti.API.debug(html);
-		Ti.API.debug('******************************************************************');
-		
-		var result = RegExp(regExp).exec(html);
-		if (result == null || result.length < 2) return null;
-		
-		Ti.API.debug('Looking for a PIN [pin:'+result[1]+']: done.');
-				
-		return result[1];
-	};
-
-};
-
-PinFinder.digg=new PinFinder('<p id="pin">(.*?)</p>');
-PinFinder.twitter=new PinFinder('<div id="oauth_pin">(.*?)</div>');
-PinFinder.buzz=new PinFinder('verification code: <b>(.*?)</b>');
-PinFinder.yahoo=new PinFinder('<span id="shortCode">(.*?)</span>');
