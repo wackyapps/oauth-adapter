@@ -40,7 +40,7 @@
  oAuthAdapter.loadAccessToken('twitter');
 
  // consume a service API - in this case the status update by Twitter
- oAuthAdapter.send('https://api.twitter.com/1/statuses/update.json', ['status','Hey @ziodave, I managed to use the #oauth adapter for @titanium consuming @twitterapi'],'Twitter','Tweet published.','Tweet not published.');
+ oAuthAdapter.send('https://api.twitter.com/1/statuses/update.json', [['status','Hey @ziodave, I managed to use the #oauth adapter for @titanium consuming @twitterapi']],'Twitter','Tweet published.','Tweet not published.');
 
  // if the client is not authorized, ask for authorization. the previous tweet will be sent automatically after authorization
  if (oAuthAdapter.isAuthorized() == false)
