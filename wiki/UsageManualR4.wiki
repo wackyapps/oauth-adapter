@@ -6,7 +6,7 @@
 This short introduction will explain how to use the OAuthAdapter.
 
 Download the oauth_adapter.js file according to your version of Titanium Mobile SDK and iPhone SDK:
- * Mobile SDK 1.3.3 and iPhone SDK 4.0: [http://oauth-adapter.googlecode.com/svn-history/r14/trunk/oauth_adapter.js oauth_adapter.js r14]
+ * Mobile SDK 1.3.3 and iPhone SDK 4.0: [http://oauth-adapter.googlecode.com/svn-history/r16/trunk/oauth_adapter.js oauth_adapter.js r16]
  * Mobile SDK 1.3.0 and iPhone SDK 3: [http://oauth-adapter.googlecode.com/svn-history/r4/trunk/oauth_adapter.js oauth_adapter.js r4]
 
 You need to download the following two libraries to a lib subfolder (below the Resource folder) in your project:
